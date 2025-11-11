@@ -7,6 +7,7 @@ from l5x.tag import Scope
 from l5x.dom import ElementDict
 from l5x.rung import Rung
 from l5x.ladder import Ladder
+from l5x.sfc import SFC
         
 
 
@@ -15,7 +16,7 @@ class Routine:
      def __init__(self, element, lang):
         self.element = element
         self.lang = lang
-
+        
         #currently, the only supported logic element is ladder logic, so RLLContent.
         #this can be expanded in the future to support other logic types
         self.rll_content_element = element.find("RLLContent")
@@ -24,6 +25,8 @@ class Routine:
             logic_list = []
         rung_list = [Rung(rung_element, lang) for rung_element in logic_list]
         self.ladder = Ladder(element=self.rll_content_element, rungs=rung_list)
+
+
 
 class Program(Scope):
     def __init__(self, element, lang):
@@ -37,6 +40,9 @@ class Program(Scope):
                                     key_attr='Name',
                                     value_type=Routine,
                                     value_args=[lang])
+        
+        self.sfc = SFC(element.find('SFCContent')) #only works if there's only one 
+                                
 
         super().__init__(element, lang)
 
