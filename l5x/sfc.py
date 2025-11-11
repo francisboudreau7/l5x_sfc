@@ -324,34 +324,6 @@ class Branch:
         self.type = brtype
 
 
-class Link:
-    def __init__(self, element=None):
-        if element is None:
-            self.element = ElementTree.Element("Link", attrib={})
-        else:
-            self.element = element
-
-    @property
-    def step_id(self):
-        # Link may reference a Step by attribute or child
-        if 'StepID' in self.element.attrib:
-            return self.element.attrib['StepID']
-        step = self.element.find('Step')
-        if step is not None:
-            return step.attrib.get('ID') or step.text
-        return None
-    
-
-    @property
-    def transition_id(self):
-        if 'TransitionID' in self.element.attrib:
-            return self.element.attrib['TransitionID']
-        t = self.element.find('Transition')
-        if t is not None:
-            return t.attrib.get('ID') or t.text
-        return None
-
-
 class DirectedLink:
     def __init__(self, element=None):
         if element is None:
