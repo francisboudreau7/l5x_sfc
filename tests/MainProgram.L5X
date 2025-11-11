@@ -1430,7 +1430,7 @@
 </Rung>
 </RLLContent>
 </Routine>
-<Routine Name="Manip2" Type="SFC">
+<Routine Name="SFC" Type="SFC">
 <SFCContent SheetSize="Letter - 8.5 x 11 in" SheetOrientation="Landscape" StepName="Step" TransitionName="Tran" ActionName="Action" StopName="Stop">
 <Step ID="0" X="200" Y="100" Operand="Step_000" HideDesc="false" DescX="240" DescY="80" DescWidth="0" InitialStep="true" PresetUsesExpr="false" LimitHighUsesExpr="false"
  LimitLowUsesExpr="false" ShowActions="true">

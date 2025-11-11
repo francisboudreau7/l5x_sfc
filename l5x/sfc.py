@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ElementTree
-from l5x.dom import CDATA_TAG
+from l5x.dom import CDATA_TAG, ElementDict
 
 
 class SFC:
@@ -12,13 +12,14 @@ class SFC:
             self.element = ElementTree.Element("SFC")
         else:
             self.element = _sfc_content_element
+        
+        
+        steps_elements = self.element.findall('Step')
+        self.steps =  dict([(el.attrib.get("ID"),Step(el),) for el in steps_elements])
 
-    # Steps property returns Step objects for child Step elements
-    @property
     def steps(self):
+        return self.steps
 
-        return dict([(el.attrib.get("ID"),Step(el),) for el in self.element.findall('Step')])
-    
     @property
     def transitions(self):
         return [Transition(el) for el in self.element.findall('Transition')]

@@ -17,14 +17,15 @@ class Routine:
         self.element = element
         self.lang = lang
         
-        #currently, the only supported logic element is ladder logic, so RLLContent.
-        #this can be expanded in the future to support other logic types
-        self.rll_content_element = element.find("RLLContent")
-        logic_list = self.rll_content_element.findall("Rung")
-        if logic_list is None:
-            logic_list = []
-        rung_list = [Rung(rung_element, lang) for rung_element in logic_list]
-        self.ladder = Ladder(element=self.rll_content_element, rungs=rung_list)
+        if self.element.attrib.get("Type") == "RLL":
+            self.rll_content_element = element.find("RLLContent")
+            logic_list = self.rll_content_element.findall("Rung")
+            if logic_list is None:
+                logic_list = []
+            rung_list = [Rung(rung_element, lang) for rung_element in logic_list]
+            self.ladder = Ladder(element=self.rll_content_element, rungs=rung_list)
+        if self.element.attrib.get("Type") == "SFC":
+            self.sfc_element = element.find("SFCContent")
 
 
 
@@ -41,7 +42,7 @@ class Program(Scope):
                                     value_type=Routine,
                                     value_args=[lang])
         
-        self.sfc = SFC(element.find('SFCContent')) #only works if there's only one 
+        self.sfc = SFC(self.routines['SFC'].sfc_element) #only works if there's only one 
                                 
 
         super().__init__(element, lang)
