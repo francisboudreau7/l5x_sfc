@@ -1,7 +1,7 @@
 import unittest
 import xml.etree.ElementTree as ElementTree
 
-from l5x.sfc import SFC, Step, Transition, Link, DirectedLink, Branch
+from l5x.sfc import SFC, Step, Transition, DirectedLink, Branch
 
 
 class SFCParsing(unittest.TestCase):
@@ -52,11 +52,33 @@ class SFCParsing(unittest.TestCase):
 		self.assertIsInstance(d, DirectedLink)
 		self.assertEqual(d.from_id, '4')
 		self.assertEqual(d.to_id, '61')
-
+		
+    
+	def test_transition_links(self):
+		#this test is a specific example to verify that the links between steps and transitions are correctly established
+		step0 = self.sfc.get_step('0')
+		self.assertEqual(len(step0.outgoing_transition_objects), 1)
+		self.assertEqual(len(step0.incoming_transition_objects), 2) 
+		self.assertEqual(step0.outgoing_transition_objects[0].id, "39") 
+		self.assertEqual(step0.incoming_transition_objects[0].id, "50") # this list should be sorted
+		self.assertEqual(step0.incoming_transition_objects[1].id, "60") 
+		step2 = self.sfc.get_step('2')
+		self.assertEqual(len(step2.incoming_transition_objects), 1)
+		self.assertEqual(len(step2.outgoing_transition_objects), 1)
+		self.assertEqual(step2.outgoing_transition_objects[0].id, "40")
+		self.assertEqual(step2.incoming_transition_objects[0].id, "39")
+		step15 = self.sfc.get_step('15')
+		
+		self.assertEqual(len(step15.incoming_transition_objects), 1)
+		self.assertEqual(len(step15.outgoing_transition_objects), 2)
+		self.assertEqual(step15.incoming_transition_objects[0].id, "46")
+		self.assertEqual(step15.outgoing_transition_objects[0].id, "47")
+		self.assertEqual(step15.outgoing_transition_objects[1].id, "48")
+        
 	def test_steps_transitions_properties_and_st_content(self):
 		s0 = self.sfc.get_step('0')
 		self.assertEqual(s0.id, '0')
-		self.assertEqual(s0.operand, 'Step_000')
+		self.assertEqual(s0.string_operand, 'Step_000')
 		# In the raw SFCContent fixture STContent is nested under Action/Body
 		# and is not converted into the CDATAContent element; Step.st will be None
 		self.assertIsNone(s0.st)
@@ -80,9 +102,216 @@ class SFCParsing(unittest.TestCase):
 
 
 	def test_branchs_property(self):
-		# branchs property currently returns an empty list
-		self.assertEqual(self.sfc.branchs, [])
+		# branchs property now returns actual Branch objects
+		branchs = self.sfc.branchs
+		self.assertIsInstance(branchs, list)
+		# Fixture should have branches
+		self.assertGreater(len(branchs), 0)
+		# Verify we can find known branches
+		branch_ids = {b.id for b in branchs}
+		self.assertIn('61', branch_ids)
 
+	def test_int_operand_parsing(self):
+		s3 = self.sfc.get_step('2')
+		self.assertEqual(s3.string_operand, 'Step_001')
+		self.assertEqual(s3.int_operand(), 1)
+
+	def test_transition_immediate_previous_steps(self):
+		"""Test that transitions contain immediate previous steps (incoming)."""
+		# Transition 39 should have Step 0 as previous step
+		tr39 = self.sfc.get_transition('39')
+		self.assertIsNotNone(tr39)
+		from_steps = tr39.from_step_objects
+		self.assertEqual(len(from_steps), 1)
+		self.assertEqual(from_steps[0].id, '0')
+		
+		# Transition 39 should also be accessible via the alias
+		incoming_steps = tr39.incoming_step_objects
+		self.assertEqual(len(incoming_steps), 1)
+		self.assertEqual(incoming_steps[0].id, '0')
+
+	def test_transition_immediate_following_steps(self):
+		"""Test that transitions contain immediate following steps (outgoing)."""
+		# Transition 39 should have Step 2 as the next step
+		tr39 = self.sfc.get_transition('39')
+		self.assertIsNotNone(tr39)
+		to_steps = tr39.to_step_objects
+		self.assertEqual(len(to_steps), 1)
+		self.assertEqual(to_steps[0].id, '2')
+		
+		# Transition 39 should also be accessible via the alias
+		outgoing_steps = tr39.outgoing_step_objects
+		self.assertEqual(len(outgoing_steps), 1)
+		self.assertEqual(outgoing_steps[0].id, '2')
+
+	def test_transition_with_multiple_incoming_steps(self):
+		"""Test transition with incoming steps from multiple branches/paths."""
+		# Even if not all transitions have multiple incoming steps,
+		# verify that when they do exist, they're properly tracked
+		found_multiple = False
+		for tr in self.sfc.transitions:
+			from_steps = tr.from_step_objects
+			if len(from_steps) > 1:
+				found_multiple = True
+				# Verify all from_steps are actual Step objects
+				for step in from_steps:
+					self.assertIsNotNone(step.id)
+				break
+		
+		# At minimum, verify transition 50 has its incoming step
+		tr50 = self.sfc.get_transition('50')
+		from_steps = tr50.from_step_objects
+		self.assertGreater(len(from_steps), 0)
+
+	def test_transition_with_multiple_outgoing_steps(self):
+		"""Test transition with multiple following steps (via branches)."""
+		# Transition 47 and 48 are outgoing from Step 15
+		# So Step 15 should have both 47 and 48 as outgoing
+		# Conversely, 47 and 48 should lead to steps after them
+		tr47 = self.sfc.get_transition('47')
+		self.assertIsNotNone(tr47)
+		to_steps = tr47.to_step_objects
+		self.assertGreater(len(to_steps), 0)
+
+	def test_transition_step_lists_are_sorted(self):
+		"""Test that step lists in transitions are sorted by ID (deterministic ordering)."""
+		# Find a transition with multiple steps
+		for tr in self.sfc.transitions:
+			from_steps = tr.from_step_objects
+			to_steps = tr.to_step_objects
+			
+			if len(from_steps) > 1:
+				from_ids = [int(s.id) for s in from_steps]
+				self.assertEqual(from_ids, sorted(from_ids), 
+					f"Transition {tr.id} from_steps not sorted: {from_ids}")
+			
+			if len(to_steps) > 1:
+				to_ids = [int(s.id) for s in to_steps]
+				self.assertEqual(to_ids, sorted(to_ids),
+					f"Transition {tr.id} to_steps not sorted: {to_ids}")
+
+	def test_transition_accessor_aliases(self):
+		"""Test that from_step_objects/incoming_step_objects and to_step_objects/outgoing_step_objects are equivalent."""
+		for tr in self.sfc.transitions:
+			# from_step_objects and incoming_step_objects should be identical
+			from_objs = tr.from_step_objects
+			incoming_objs = tr.incoming_step_objects
+			from_ids = [s.id for s in from_objs]
+			incoming_ids = [s.id for s in incoming_objs]
+			self.assertEqual(from_ids, incoming_ids,
+				f"Transition {tr.id}: from_step_objects != incoming_step_objects")
+			
+			# to_step_objects and outgoing_step_objects should be identical
+			to_objs = tr.to_step_objects
+			outgoing_objs = tr.outgoing_step_objects
+			to_ids = [s.id for s in to_objs]
+			outgoing_ids = [s.id for s in outgoing_objs]
+			self.assertEqual(to_ids, outgoing_ids,
+				f"Transition {tr.id}: to_step_objects != outgoing_step_objects")
+
+	def test_transition_step_objects_bidirectional_consistency(self):
+		"""Test bidirectional consistency: if Step→Transition, then Transition→Step."""
+		for step in self.sfc.steps:
+			# For each outgoing transition from step
+			for tr in step.outgoing_transition_objects:
+				# That transition should have this step in its from_step_objects
+				self.assertIn(step, tr.from_step_objects,
+					f"Step {step.id} → Transition {tr.id}, but transition doesn't reference step")
+			
+			# For each incoming transition to step
+			for tr in step.incoming_transition_objects:
+				# That transition should have this step in its to_step_objects
+				self.assertIn(step, tr.to_step_objects,
+					f"Transition {tr.id} → Step {step.id}, but transition doesn't reference step")
+
+	def test_get_step_by_operand(self):
+		"""Test retrieving Step objects by operand number."""
+		# Step 15 has operand 'Step_008', so operand number is 8
+		step = self.sfc.get_step_by_operand(8)
+		self.assertIsNotNone(step)
+		self.assertEqual(step.id, '15')
+		self.assertEqual(step.string_operand, 'Step_008')
+		
+		# Test with string input (should convert to int)
+		step = self.sfc.get_step_by_operand('8')
+		self.assertIsNotNone(step)
+		self.assertEqual(step.id, '15')
+		
+		# Non-existent operand returns None
+		step = self.sfc.get_step_by_operand(9999)
+		self.assertIsNone(step)
+
+	def test_get_step_by_operand_multiple_steps(self):
+		"""Test that get_step_by_operand returns the first matching step."""
+		# Test with a few known steps
+		step0 = self.sfc.get_step_by_operand(0)
+		self.assertIsNotNone(step0)
+		self.assertEqual(step0.string_operand, 'Step_000')
+		
+		step1 = self.sfc.get_step_by_operand(1)
+		self.assertIsNotNone(step1)
+		self.assertEqual(step1.string_operand, 'Step_001')
+		
+		step2 = self.sfc.get_step_by_operand(2)
+		self.assertIsNotNone(step2)
+		self.assertEqual(step2.string_operand, 'Step_002')
+
+	def test_get_transition_by_operand(self):
+		"""Test retrieving Transition objects by operand number."""
+		# Find a transition with a known operand
+		# Transition 39 has operand 'Tran_000'
+		trans = self.sfc.get_transition_by_operand(0)
+		self.assertIsNotNone(trans)
+		self.assertEqual(trans.id, '39')
+		self.assertEqual(trans.string_operand, 'Tran_000')
+		
+		# Test with string input (should convert to int)
+		trans = self.sfc.get_transition_by_operand('0')
+		self.assertIsNotNone(trans)
+		self.assertEqual(trans.id, '39')
+		
+		# Non-existent operand returns None
+		trans = self.sfc.get_transition_by_operand(9999)
+		self.assertIsNone(trans)
+
+	def test_get_transition_by_operand_multiple(self):
+		"""Test retrieving various transitions by operand number."""
+		# Test with a few known transitions
+		trans1 = self.sfc.get_transition_by_operand(1)
+		self.assertIsNotNone(trans1)
+		self.assertEqual(trans1.string_operand, 'Tran_001')
+		
+		trans2 = self.sfc.get_transition_by_operand(2)
+		self.assertIsNotNone(trans2)
+		self.assertEqual(trans2.string_operand, 'Tran_002')
+
+	def test_operand_lookup_consistency(self):
+		"""Test that operand lookup finds all steps and transitions consistently."""
+		# Collect all unique operand numbers from steps
+		step_operands = set()
+		for step in self.sfc.steps:
+			op = step.int_operand()
+			if op is not None:
+				step_operands.add(op)
+		
+		# Verify we can retrieve each step by operand
+		for op in step_operands:
+			step = self.sfc.get_step_by_operand(op)
+			self.assertIsNotNone(step, f"Failed to retrieve step with operand {op}")
+			self.assertEqual(step.int_operand(), op)
+		
+		# Collect all unique operand numbers from transitions
+		trans_operands = set()
+		for trans in self.sfc.transitions:
+			op = trans.int_operand()
+			if op is not None:
+				trans_operands.add(op)
+		
+		# Verify we can retrieve each transition by operand
+		for op in trans_operands:
+			trans = self.sfc.get_transition_by_operand(op)
+			self.assertIsNotNone(trans, f"Failed to retrieve transition with operand {op}")
+			self.assertEqual(trans.int_operand(), op)
 
 if __name__ == '__main__':
 	unittest.main()
