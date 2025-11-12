@@ -252,6 +252,11 @@ class Step:
     def id(self):
         return self.element.attrib.get("ID")
 
+    @property
+    def is_initial_step(self):
+        """Return True if this is the initial step, False otherwise."""
+        initial_step_attr = self.element.attrib.get("InitialStep", "false")
+        return initial_step_attr.lower() == "true"
 
     @property
     def string_operand(self):
