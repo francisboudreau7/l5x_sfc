@@ -313,5 +313,89 @@ class SFCParsing(unittest.TestCase):
 			self.assertIsNotNone(trans, f"Failed to retrieve transition with operand {op}")
 			self.assertEqual(trans.int_operand(), op)
 
+	def test_step_preset_property_exists(self):
+		"""Test that Step objects have a preset property."""
+		step = self.sfc.get_step('0')
+		self.assertIsNotNone(step)
+		# preset should exist and be initialized to None
+		self.assertIsNone(step.preset)
+
+	def test_load_presets_from_program_tags(self):
+		"""Test loading step presets from MainProgram.L5X tags."""
+		# Load MainProgram.L5X which contains tag data with presets
+		doc = ElementTree.parse('tests/MainProgram.L5X')
+		root = doc.getroot()
+		
+		# Find the Program element
+		program_elem = root.find(".//Program[@Name='MainProgram']")
+		self.assertIsNotNone(program_elem, "MainProgram not found")
+		
+		# Find the SFCContent element (inside Routine)
+		sfc_content = program_elem.find(".//Routine[@Name='SFC']/SFCContent")
+		self.assertIsNotNone(sfc_content, "SFCContent not found in MainProgram")
+		
+		# Find the Tags element (sibling of Routines)
+		tags_elem = program_elem.find("Tags")
+		self.assertIsNotNone(tags_elem, "Tags element not found")
+		
+		# Create SFC with both SFCContent and program tags
+		sfc = SFC(sfc_content, tags_elem)
+		
+		# Step_004 (ID 8) should have preset of 500
+		step4 = sfc.get_step('8')
+		self.assertIsNotNone(step4)
+		self.assertEqual(step4.string_operand, 'Step_004')
+		self.assertEqual(step4.preset, 500)
+
+	def test_presets_by_operand(self):
+		"""Test retrieving steps with presets using operand lookup."""
+		doc = ElementTree.parse('tests/MainProgram.L5X')
+		root = doc.getroot()
+		program_elem = root.find(".//Program[@Name='MainProgram']")
+		sfc_content = program_elem.find(".//Routine[@Name='SFC']/SFCContent")
+		tags_elem = program_elem.find("Tags")
+		
+		sfc = SFC(sfc_content, tags_elem)
+		
+		# Get step by operand number 4 (Step_004)
+		step = sfc.get_step_by_operand(4)
+		self.assertIsNotNone(step)
+		self.assertEqual(step.preset, 500)
+		step = sfc.get_step_by_operand(2)
+		self.assertIsNotNone(step)
+		self.assertEqual(step.preset, 3000)
+
+	def test_steps_without_tags_have_no_preset(self):
+		"""Test that steps without corresponding tags have None preset."""
+		# SFCContent.xml doesn't have program tags, so presets should be None
+		doc = ElementTree.parse('tests/SFCContent.xml')
+		root = doc.getroot()
+		sfc = SFC(root, None)
+		
+		# All steps should have preset=None
+		for step in sfc.steps:
+			self.assertIsNone(step.preset)
+
+	def test_multiple_steps_with_presets(self):
+		"""Test that multiple steps can have different presets loaded."""
+		doc = ElementTree.parse('tests/MainProgram.L5X')
+		root = doc.getroot()
+		program_elem = root.find(".//Program[@Name='MainProgram']")
+		sfc_content = program_elem.find(".//Routine[@Name='SFC']/SFCContent")
+		tags_elem = program_elem.find("Tags")
+		
+		sfc = SFC(sfc_content, tags_elem)
+		
+		# Collect all steps with non-None presets
+		steps_with_presets = [s for s in sfc.steps if s.preset is not None]
+		
+		# MainProgram should have at least some steps with presets
+		self.assertGreater(len(steps_with_presets), 0)
+		
+		# All presets should be integers (can be 0 or greater)
+		for step in steps_with_presets:
+			self.assertIsInstance(step.preset, int)
+			self.assertGreaterEqual(step.preset, 0)
+
 if __name__ == '__main__':
 	unittest.main()

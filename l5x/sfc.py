@@ -3,7 +3,7 @@ from l5x.dom import CDATA_TAG, ElementDict
 import re
 
 class SFC:
-    def __init__(self, _sfc_content_element=None):
+    def __init__(self, _sfc_content_element=None, program_tags_element=None):
         """
         SFC container for Steps, Transitions, Links, Timers and Counters.
         Accepts an XML element or will create an empty SFC element.
@@ -29,6 +29,10 @@ class SFC:
 
         self.directed_links = [DirectedLink(el) for el in self.element.findall('DirectedLink')]
         self._build_relations()
+        
+        # Load timer presets from program tags if provided
+        if program_tags_element is not None:
+            self._load_step_presets(program_tags_element)
 
     
     def _get_elements_by_tag(self, parent, tag, cls):
@@ -81,33 +85,14 @@ class SFC:
         return self._transitions.get(id_)
 
     def get_step_by_operand(self, operand_num):
-        """Return Step object by operand number or None.
-        
-        Operand format for Steps is typically 'Step_XXX' where XXX is the operand number.
-        For example, Step_008 has operand number 8.
-        
-        Args:
-            operand_num: The numeric operand to search for (int or str)
-        
-        Returns:
-            Step object with matching operand number, or None if not found.
-        """
+        """Return Step object by operand number or None. """
         for step in self._steps.values():
             if step.int_operand() == int(operand_num):
                 return step
         return None
     
     def get_transition_by_operand(self, operand_num):
-        """Return Transition object by operand number or None.
-        
-        Operand format for Transitions is typically 'Tran_XXX' where XXX is the operand number.
-        
-        Args:
-            operand_num: The numeric operand to search for (int or str)
-        
-        Returns:
-            Transition object with matching operand number, or None if not found.
-        """
+        """Return Transition object by operand number or None. """
         for transition in self._transitions.values():
             if transition.int_operand() == int(operand_num):
                 return transition
@@ -216,6 +201,40 @@ class SFC:
             tr_obj._from_steps_objs.sort(key=lambda s: int(s.id))
             tr_obj._to_steps_objs.sort(key=lambda s: int(s.id))
 
+    def _load_step_presets(self, program_tags_element):
+        """Load timer preset values from program tags into Step objects.
+        
+        Looks for tags named after Step operands (e.g., 'Step_004') and extracts
+        the PRE (preset) value from the SFC_STEP data type.
+        
+        Args:
+            program_tags_element: XML element containing <Tag> elements from Program
+        """
+        if program_tags_element is None:
+            return
+        
+        # For each Step, find its corresponding tag and extract preset
+        for step in self._steps.values():
+            operand = step.string_operand
+            if operand is None:
+                continue
+            
+            # Find the tag with matching name
+            tag_elem = program_tags_element.find(f".//Tag[@Name='{operand}']")
+            if tag_elem is None:
+                continue
+            
+            # Extract PRE value from the decorated data structure
+            # Look for <DataValueMember Name="PRE" ... Value="500"/>
+            pre_elem = tag_elem.find(".//DataValueMember[@Name='PRE']")
+            if pre_elem is not None:
+                pre_value = pre_elem.attrib.get('Value')
+                if pre_value is not None:
+                    try:
+                        step.preset = int(pre_value)
+                    except ValueError:
+                        pass
+
 
 class Step:
     def __init__(self, element=None):
@@ -226,6 +245,8 @@ class Step:
         # object references to Transition instances
         self._incoming_objs = []
         self._outgoing_objs = []
+        # Timer preset value (in milliseconds)
+        self.preset = None
 
     @property
     def id(self):

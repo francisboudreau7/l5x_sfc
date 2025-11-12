@@ -41,8 +41,10 @@ class Program(Scope):
                                     key_attr='Name',
                                     value_type=Routine,
                                     value_args=[lang])
-        
-        self.sfc = SFC(self.routines['SFC'].sfc_element) #only works if there's only one 
+        #only works if there's only one...need to generalize later
+        #also need to pass in Tags from Program level to get Timers/Counters hidden in Steps
+        #for now i will assume that the file contains new timer tags and counter tags for ladder already created...might need to auto-create later
+        self.sfc = SFC(self.routines['SFC'].sfc_element, element.find('Tags')) 
                                 
 
         super().__init__(element, lang)
