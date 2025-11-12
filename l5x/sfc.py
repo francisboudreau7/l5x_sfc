@@ -80,10 +80,38 @@ class SFC:
         """Return Transition object by ID or None."""
         return self._transitions.get(id_)
 
-
-    @property
-    def links(self):
-        return [Link(el) for el in self.element.findall('Link')]
+    def get_step_by_operand(self, operand_num):
+        """Return Step object by operand number or None.
+        
+        Operand format for Steps is typically 'Step_XXX' where XXX is the operand number.
+        For example, Step_008 has operand number 8.
+        
+        Args:
+            operand_num: The numeric operand to search for (int or str)
+        
+        Returns:
+            Step object with matching operand number, or None if not found.
+        """
+        for step in self._steps.values():
+            if step.int_operand() == int(operand_num):
+                return step
+        return None
+    
+    def get_transition_by_operand(self, operand_num):
+        """Return Transition object by operand number or None.
+        
+        Operand format for Transitions is typically 'Tran_XXX' where XXX is the operand number.
+        
+        Args:
+            operand_num: The numeric operand to search for (int or str)
+        
+        Returns:
+            Transition object with matching operand number, or None if not found.
+        """
+        for transition in self._transitions.values():
+            if transition.int_operand() == int(operand_num):
+                return transition
+        return None
 
     @property
     def branchs(self):
