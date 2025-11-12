@@ -161,48 +161,60 @@ class SFC:
                 return 'leg'
             return 'other'
 
-        def bfs(start, forward=True, target_kind='transition'):
-            """Return set of node ids of kind target_kind reachable from start.
-
-            forward=True follows adj, otherwise uses radj (reverse).
+        def find_immediate_transitions(start, forward=True):
+            """Find immediate/next transitions from a start node (Step or Transition).
+            
+            Traversal may pass through Branch/Leg nodes but stops at the first Transition.
+            Never crosses from one Step to another Step directly.
             """
             q = [start]
             seen = {start}
             found = set()
             while q:
                 cur = q.pop(0)
-                # check current
-                if node_type(cur) == target_kind:
-                    found.add(cur)
-                    # do not stop; continue to find all reachable targets
-                # explore neighbors
+                cur_type = node_type(cur)
                 neighbors = adj.get(cur, []) if forward else radj.get(cur, [])
                 for nb in neighbors:
                     if nb in seen:
                         continue
                     seen.add(nb)
-                    q.append(nb)
+                    nb_type = node_type(nb)
+                    if nb_type == 'transition':
+                        # found a transition, add it but don't explore beyond
+                        found.add(nb)
+                    elif nb_type in ('branch', 'leg'):
+                        # pass through branch/leg nodes
+                        q.append(nb)
+                    # skip steps and other types
             return found
 
-        # For each step, find transitions reachable forward (outgoing) and backward (incoming)
+        # For each step, find immediate next/previous transitions
         for sid, step_obj in self._steps.items():
-            # outgoing transitions: BFS forward from step id
-            tr_ids = bfs(sid, forward=True, target_kind='transition')
-            for tid in tr_ids:
+            # outgoing transitions: immediate next transitions (may pass through branch/leg)
+            tr_ids = find_immediate_transitions(sid, forward=True)
+            for tid in sorted(tr_ids, key=lambda x: int(x)):
                 tr_obj = self._transitions.get(tid)
                 if tr_obj is None:
                     continue
                 step_obj.add_outgoing_transition(tr_obj)
                 tr_obj.add_from_step(step_obj)
 
-            # incoming transitions: BFS backward from step id
-            tr_in_ids = bfs(sid, forward=False, target_kind='transition')
-            for tid in tr_in_ids:
+            # incoming transitions: immediate previous transitions
+            tr_in_ids = find_immediate_transitions(sid, forward=False)
+            for tid in sorted(tr_in_ids, key=lambda x: int(x)):
                 tr_obj = self._transitions.get(tid)
                 if tr_obj is None:
                     continue
                 step_obj.add_incoming_transition(tr_obj)
                 tr_obj.add_to_step(step_obj)
+
+        # ensure deterministic ordering for all step/transition object lists
+        for step_obj in self._steps.values():
+            step_obj._incoming_objs.sort(key=lambda t: int(t.id))
+            step_obj._outgoing_objs.sort(key=lambda t: int(t.id))
+        for tr_obj in self._transitions.values():
+            tr_obj._from_steps_objs.sort(key=lambda s: int(s.id))
+            tr_obj._to_steps_objs.sort(key=lambda s: int(s.id))
 
 
 class Step:
@@ -311,6 +323,23 @@ class Transition:
     @property
     def id(self):
         return self.element.attrib.get("ID")
+    
+    @property
+    def string_operand(self):
+        return self.element.attrib.get("Operand")
+    
+    def int_operand(self):
+        """Return Operand as integer if possible, else None."""
+        op = self.string_operand
+        if op is None:
+            return None
+        try:
+            matches = re.findall("(\d+)", op)
+            if matches:
+                return int(matches[0])
+            return None
+        except ValueError:
+            return None
 
     @property
     def condition(self):
@@ -352,12 +381,23 @@ class Transition:
 
     @property
     def from_step_objects(self):
+        """Return list of Step objects that come immediately before this Transition."""
         return list(self._from_steps_objs)
 
     @property
     def to_step_objects(self):
+        """Return list of Step objects that come immediately after this Transition."""
         return list(self._to_steps_objs)
-
+    
+    @property
+    def incoming_step_objects(self):
+        """Alias for from_step_objects: Steps immediately before this Transition."""
+        return self.from_step_objects
+    
+    @property
+    def outgoing_step_objects(self):
+        """Alias for to_step_objects: Steps immediately after this Transition."""
+        return self.to_step_objects
 
 class Branch:
     def __init__(self, id_, legs=None, flow=None, brtype=None):
