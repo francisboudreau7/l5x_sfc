@@ -1,6 +1,6 @@
 import xml.etree.ElementTree as ElementTree
 from l5x.dom import CDATA_TAG, ElementDict
-
+import re
 
 class SFC:
     def __init__(self, _sfc_content_element=None):
@@ -115,9 +115,9 @@ class SFC:
 
     @property
     def branchs(self):
-        # not implemented: Branch parsing can be added later
-        return []
-
+        """Return list of Branch objects parsed from the SFC."""
+        return list(self._branches.values())
+    
     def _build_relations(self):
         """Walk DirectedLink entries and wire Step/Transition object references.
 
