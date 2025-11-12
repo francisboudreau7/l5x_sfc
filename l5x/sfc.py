@@ -193,8 +193,23 @@ class Step:
 
 
     @property
-    def operand(self):
+    def string_operand(self):
         return self.element.attrib.get("Operand")
+    
+    def int_operand(self):
+        """Return Operand as integer if possible, else None."""
+        op = self.string_operand
+        if op is None:
+            return None
+        try:
+            matches = re.findall("(\d+)", op)
+            if matches:
+                return int(matches[0])
+            return None
+        except ValueError:
+            return None
+
+
 
     # STContent is usually stored as CDATA under STContent tag
     @property
