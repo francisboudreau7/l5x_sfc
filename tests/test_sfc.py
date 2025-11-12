@@ -79,9 +79,12 @@ class SFCParsing(unittest.TestCase):
 		s0 = self.sfc.get_step('0')
 		self.assertEqual(s0.id, '0')
 		self.assertEqual(s0.string_operand, 'Step_000')
-		# In the raw SFCContent fixture STContent is nested under Action/Body
-		# and is not converted into the CDATAContent element; Step.st will be None
-		self.assertIsNone(s0.st)
+		# st property now returns a list of ST lines
+		self.assertIsInstance(s0.st, list)
+		# SFCContent has some content in Step 0
+		for line in s0.st:
+			self.assertIsInstance(line, str)
+			self.assertGreater(len(line.strip()), 0)
 
 	def test_id_based_vs_object_links(self):
 		# ID-based incoming/outgoing lists on Step are not used in this fixture (empty)
@@ -396,6 +399,72 @@ class SFCParsing(unittest.TestCase):
 		for step in steps_with_presets:
 			self.assertIsInstance(step.preset, int)
 			self.assertGreaterEqual(step.preset, 0)
+
+	def test_step_st_content_parsing(self):
+		"""Test that ST content is parsed from Action/Body/STContent/Line elements."""
+		# Load MainProgram.L5X which has ST content in steps
+		doc = ElementTree.parse('tests/MainProgram.L5X')
+		root = doc.getroot()
+		program_elem = root.find(".//Program[@Name='MainProgram']")
+		sfc_content = program_elem.find(".//Routine[@Name='SFC']/SFCContent")
+		
+		sfc = SFC(sfc_content)
+		
+		# Get Step 0 (Step_000)
+		step0 = sfc.get_step('0')
+		self.assertIsNotNone(step0)
+		
+		# st should be a list
+		st_lines = step0.st
+		self.assertIsInstance(st_lines, list)
+		
+		# Step_000 should have some content
+		self.assertGreater(len(st_lines), 0)
+		
+		# All lines should be strings
+		for line in st_lines:
+			self.assertIsInstance(line, str)
+			# No line should be empty (we filter those out)
+			self.assertGreater(len(line.strip()), 0)
+
+	def test_step_st_content_excludes_empty_lines(self):
+		"""Test that empty ST lines are not included in the result."""
+		# Load MainProgram.L5X
+		doc = ElementTree.parse('tests/MainProgram.L5X')
+		root = doc.getroot()
+		program_elem = root.find(".//Program[@Name='MainProgram']")
+		sfc_content = program_elem.find(".//Routine[@Name='SFC']/SFCContent")
+		
+		sfc = SFC(sfc_content)
+		
+		# Check all steps - none should have empty strings in their ST lines
+		for step in sfc.steps:
+			st_lines = step.st
+			for line in st_lines:
+				# Each line should have non-whitespace content
+				self.assertGreater(len(line.strip()), 0,
+					f"Step {step.id} has empty ST line: '{line}'")
+
+	def test_step_st_content_multiple_lines(self):
+		"""Test that steps with multiple ST lines are parsed correctly."""
+		# Load MainProgram.L5X
+		doc = ElementTree.parse('tests/MainProgram.L5X')
+		root = doc.getroot()
+		program_elem = root.find(".//Program[@Name='MainProgram']")
+		sfc_content = program_elem.find(".//Routine[@Name='SFC']/SFCContent")
+		
+		sfc = SFC(sfc_content)
+		
+		# Find a step with multiple ST lines
+		for step in sfc.steps:
+			st_lines = step.st
+			if len(st_lines) > 1:
+				# Verify it's a list with multiple items
+				self.assertGreater(len(st_lines), 1)
+				# All items should be strings
+				for line in st_lines:
+					self.assertIsInstance(line, str)
+				break
 
 if __name__ == '__main__':
 	unittest.main()

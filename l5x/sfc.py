@@ -275,11 +275,45 @@ class Step:
     # STContent is usually stored as CDATA under STContent tag
     @property
     def st(self):
-        elem = self.element.find('STContent')
-        if elem is None:
-            return None
-        cdata = elem.find(CDATA_TAG)
-        return None if cdata is None else cdata.text
+        """Return list of non-empty ST (Structured Text) lines from the step's actions.
+        
+        Parses content from Action/Body/STContent/Line elements.
+        Returns a list of strings (line content), excluding empty lines.
+        Returns an empty list if no content found.
+        """
+        st_lines = []
+        
+        # Look for Action elements within this Step
+        for action in self.element.findall('Action'):
+            # Navigate to Body/STContent
+            body = action.find('Body')
+            if body is None:
+                continue
+            
+            st_content = body.find('STContent')
+            if st_content is None:
+                continue
+            
+            # Extract text from each Line element
+            for line_elem in st_content.findall('Line'):
+                # Line can contain text directly or CDATA
+                text = None
+                
+                # First try to get CDATA content
+                cdata_elem = line_elem.find(CDATA_TAG)
+                if cdata_elem is not None and cdata_elem.text:
+                    text = cdata_elem.text
+                # Otherwise, get direct text content
+                elif line_elem.text:
+                    text = line_elem.text
+                
+                if text:
+                    # Only add non-empty lines (after stripping whitespace)
+                    stripped = text.strip()
+                    if stripped:
+                        st_lines.append(stripped)
+        
+        return st_lines
 
 
 
