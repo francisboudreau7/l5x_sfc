@@ -334,7 +334,9 @@ class Step:
         """
         st_lines = []
         
-        # Look for Action elements within this Step
+        # Look for Action elements within this Step....
+        # can there be multiple? maybe not. 
+        # Will change later if needed. Now we assume multiple actions possible.
         for action in self.element.findall('Action'):
             # Navigate to Body/STContent
             body = action.find('Body')
@@ -410,7 +412,7 @@ class Transition:
         if op is None:
             return None
         try:
-            matches = re.findall("(\d+)", op)
+            matches = re.findall("\\d+", op)
             if matches:
                 return int(matches[0])
             return None
@@ -419,12 +421,36 @@ class Transition:
 
     @property
     def condition(self):
-        # condition may be stored as CDATA under Condition tag
+        #this looks an awful lot like the Step.st property
+        #There might be a way to refactor later to avoid code duplication
         elem = self.element.find('Condition')
+        conditions = []
         if elem is None:
             return None
-        cdata = elem.find(CDATA_TAG)
-        return None if cdata is None else cdata.text
+        st_content = elem.find('STContent')
+        if st_content is None:
+                return None
+            
+            # Extract text from each Line element
+        for line_elem in st_content.findall('Line'):
+            # Line can contain text directly or CDATA
+            text = None
+                
+            # First try to get CDATA content
+            cdata_elem = line_elem.find(CDATA_TAG)
+            if cdata_elem is not None and cdata_elem.text:
+                text = cdata_elem.text
+            # Otherwise, get direct text content
+            elif line_elem.text:
+                text = line_elem.text
+                
+            if text:
+                # Only add non-empty lines (after stripping whitespace)
+                stripped = text.strip()
+                if stripped:
+                    conditions.append(stripped)
+        return conditions
+        
 
     @property
     def from_steps(self):
