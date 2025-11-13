@@ -18,16 +18,15 @@ Installation
 SFC Analysis
 --------------------------------------
 
-Extract actions and steps from SFC routines. This enables creating a summary
-of SFC logic for analysis or for generating equivalent ladder routines
-programmatically.
+Extract Steps, Transitions, Actions and Timers from SFC routines. This enables creating a summary
+of SFC logic for analysis or debugging.
 
 ::
 
 	prj = l5x.Project('project.L5X')
 	sfc = prj.routines[0].sfc.print_summary()
 
-The plan is to eventually add the ability to programmatically generate ladder routines
+The plan is to eventually add the ability to programmatically generate equivalent sequential ladder routines
 from the SFC and write them back to the L5X file.
 
 
@@ -66,4 +65,5 @@ This fork is based on the l5x library which supports reading/modifying:
 - Module configuration and communication paths
 
 See original project documentation for detailed tag access examples.
+
 
