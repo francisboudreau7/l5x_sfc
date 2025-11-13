@@ -280,6 +280,56 @@ class SFC:
                         step.preset = int(pre_value)
                     except ValueError:
                         pass
+    def print_summary(self):
+        print("")
+        print("")
+        print("SFC Summary:")
+        print("")
+        print(f"STEPS Total:{len(self.steps)}")
+        print("___________________________________")
+        print("")
+        print("INCOMING -> STEP -> OUTGOING")
+        print("___________________________________")
+        for step in self.steps:
+            step_ids = [step.id for step in self.steps]
+            incoming_ids = [tr.int_operand() for tr in step.incoming_transitions]
+            outgoing_ids = [tr.int_operand() for tr in step.outgoing_transitions]
+            print(f"{str(incoming_ids):<10}{step.int_operand():<10}{str(outgoing_ids)}")
+        print("")
+        print("")
+        print("")
+        print(f"TRANSITIONS Total:{len(self.transitions)}")
+        print("___________________________________")
+        print("")
+        print("|Transition|Incoming Step|Condition|")
+        print("___________________________________")
+        for transition in self.transitions:
+            incoming_ids = [step.int_operand() for step in transition.incoming_steps]
+            print(f"     {transition.int_operand():<10}{str(incoming_ids):<10}{transition.condition}")  
+        print("")
+        print("")
+        print("")
+        print("")
+        print(f"ACTIONS Total:{len(self.actions)}")
+        print("___________________________________")
+        print("")
+        print(f"{'Action':<25} Step")
+        print("___________________________________")
+        for action, steps in self.actions:
+            step_ids = [step.id for step in steps]
+            print(f"{action:<25} {step_ids}")
+        print("")
+        print("")
+        print("")
+        print("")
+        print(f"TIMERS Total:{len([step for step in self.steps if step.preset is not None and step.preset != 0 ])}")
+        print("___________________________________")
+        print("")
+        print(f"Step     Preset(ms)")
+        print("___________________________________")
+        for step in self.steps:
+            if step.preset is not None and step.preset != 0:
+                print(f"Step {step.int_operand():<10}{step.preset} ms")
 
 
 class Step:
