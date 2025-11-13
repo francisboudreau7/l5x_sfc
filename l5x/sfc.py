@@ -364,7 +364,7 @@ class Step:
         if op is None:
             return None
         try:
-            matches = re.findall("(\d+)", op)
+            matches = re.findall("\\d+", op)
             if matches:
                 return int(matches[0])
             return None

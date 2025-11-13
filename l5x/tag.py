@@ -105,16 +105,23 @@ class Tag(object):
         This is always the sole element contained with the decorated Data
         element.
         """
-       #data = self.element.find("Data[@Format='Decorated']/*") #trying a different data format to see if it finds the subelement
-        data = self.element.find("Data")
-
+        data = self.element.find("Data[@Format='Decorated']")
+        
         if data is None:
             name = self.element.attrib['Name']
             raise RuntimeError("Decoded data content not found for {0} tag. "
                                "Ensure Encode Source Protected Content option "
                                "is disabled when saving L5X.".format(name))
 
-        return data
+        # Return the first child element (DataValue, Array, etc.)
+        children = data.findall('*')
+        if not children:
+            name = self.element.attrib['Name']
+            raise RuntimeError("No data element found in decorated Data for {0} tag. "
+                               "Ensure Encode Source Protected Content option "
+                               "is disabled when saving L5X.".format(name))
+        
+        return children[0]
 
     def __getitem__(self, key):
         """
@@ -752,3 +759,102 @@ base_data_types = {'SINT':SINT,
                    'DINT':DINT,
                    'BOOL':BOOL,
                    'REAL':REAL}
+
+
+def create_alias_tag(parent_element, name, alias_for, radix='Decimal', external_access='Read/Write'):
+    """Factory function to create an Alias tag element.
+    
+    Creates a new Alias tag XML element with proper attributes and appends it
+    to the parent Tags element.
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Tag name must be a non-empty string")
+    
+    if not alias_for or not isinstance(alias_for, str):
+        raise ValueError("AliasFor must be a non-empty string")
+    
+    # Create the XML element
+    tag_elem = ElementTree.Element('Tag', attrib={
+        'Name': name,
+        'TagType': 'Alias',
+        'Radix': radix,
+        'AliasFor': alias_for,
+        'ExternalAccess': external_access
+    })
+    
+    # Create the AliasTag object
+    alias_tag = AliasTag(tag_elem, 'en')
+    
+    # Append to parent
+    parent_element.append(tag_elem)
+    
+    return alias_tag
+
+
+def create_base_tag(parent_element, name, data_type, radix='Decimal', constant='false', external_access='Read/Write'):
+    """Factory function to create a Base tag element.
+    
+    Creates a new Base tag XML element with proper attributes, default Data elements,
+    and appends it to the parent Tags element.
+    """
+    if not name or not isinstance(name, str):
+        raise ValueError("Tag name must be a non-empty string")
+    
+    if data_type not in base_data_types:
+        valid_types = ', '.join(sorted(base_data_types.keys()))
+        raise ValueError(f"Invalid DataType '{data_type}'. Valid types are: {valid_types}")
+    
+    # Get default value for the data type
+    default_value = _get_default_value_for_type(data_type)
+    
+    # Create the XML element with proper attributes
+    tag_elem = ElementTree.Element('Tag', attrib={
+        'Name': name,
+        'TagType': 'Base',
+        'DataType': data_type,
+        'Radix': radix,
+        'Constant': constant,
+        'ExternalAccess': external_access
+    })
+    
+    # Create L5K format Data element
+    data_l5k = ElementTree.Element('Data', attrib={'Format': 'L5K'})
+    data_l5k.text = f"\n<![CDATA[{default_value}]]>\n"
+    tag_elem.append(data_l5k)
+    
+    # Create Decorated format Data element
+    data_decorated = ElementTree.Element('Data', attrib={'Format': 'Decorated'})
+    data_value_elem = ElementTree.Element('DataValue', attrib={
+        'DataType': data_type,
+        'Radix': radix,
+        'Value': default_value
+    })
+    data_decorated.append(data_value_elem)
+    tag_elem.append(data_decorated)
+    
+    # Create the Tag object
+    tag_obj = Tag(tag_elem, 'en')
+    
+    # Append to parent
+    parent_element.append(tag_elem)
+    
+    return tag_obj
+
+
+def _get_default_value_for_type(data_type):
+    """Get the default value for a given data type.
+    
+    Args:
+        data_type: The data type string
+        
+    Returns:
+        A string representation of the default value
+    """
+    defaults = {
+        'SINT': '0',
+        'INT': '0',
+        'DINT': '0',
+        'BOOL': '0',
+        'REAL': '0.0'
+    }
+    return defaults.get(data_type, '0')
