@@ -57,23 +57,23 @@ class SFCParsing(unittest.TestCase):
 	def test_transition_links(self):
 		#this test is a specific example to verify that the links between steps and transitions are correctly established
 		step0 = self.sfc.get_step('0')
-		self.assertEqual(len(step0.outgoing_transition_objects), 1)
-		self.assertEqual(len(step0.incoming_transition_objects), 2) 
-		self.assertEqual(step0.outgoing_transition_objects[0].id, "39") 
-		self.assertEqual(step0.incoming_transition_objects[0].id, "50") # this list should be sorted
-		self.assertEqual(step0.incoming_transition_objects[1].id, "60") 
+		self.assertEqual(len(step0.outgoing_transitions), 1)
+		self.assertEqual(len(step0.incoming_transitions), 2) 
+		self.assertEqual(step0.outgoing_transitions[0].id, "39") 
+		self.assertEqual(step0.incoming_transitions[0].id, "50") # this list should be sorted
+		self.assertEqual(step0.incoming_transitions[1].id, "60") 
 		step2 = self.sfc.get_step('2')
-		self.assertEqual(len(step2.incoming_transition_objects), 1)
-		self.assertEqual(len(step2.outgoing_transition_objects), 1)
-		self.assertEqual(step2.outgoing_transition_objects[0].id, "40")
-		self.assertEqual(step2.incoming_transition_objects[0].id, "39")
+		self.assertEqual(len(step2.incoming_transitions), 1)
+		self.assertEqual(len(step2.outgoing_transitions), 1)
+		self.assertEqual(step2.outgoing_transitions[0].id, "40")
+		self.assertEqual(step2.incoming_transitions[0].id, "39")
 		step15 = self.sfc.get_step('15')
 		
-		self.assertEqual(len(step15.incoming_transition_objects), 1)
-		self.assertEqual(len(step15.outgoing_transition_objects), 2)
-		self.assertEqual(step15.incoming_transition_objects[0].id, "46")
-		self.assertEqual(step15.outgoing_transition_objects[0].id, "47")
-		self.assertEqual(step15.outgoing_transition_objects[1].id, "48")
+		self.assertEqual(len(step15.incoming_transitions), 1)
+		self.assertEqual(len(step15.outgoing_transitions), 2)
+		self.assertEqual(step15.incoming_transitions[0].id, "46")
+		self.assertEqual(step15.outgoing_transitions[0].id, "47")
+		self.assertEqual(step15.outgoing_transitions[1].id, "48")
         
 	def test_steps_transitions_properties_and_st_content(self):
 		s0 = self.sfc.get_step('0')
@@ -85,20 +85,24 @@ class SFCParsing(unittest.TestCase):
 		for line in s0.st:
 			self.assertIsInstance(line, str)
 			self.assertGreater(len(line.strip()), 0)
+		# Step 0 should be the initial step
+		self.assertTrue(s0.is_initial_step)
 
 	def test_id_based_vs_object_links(self):
-		# ID-based incoming/outgoing lists on Step are not used in this fixture (empty)
+		# Step 2 should have incoming transition 39 via object-level tracking
 		s2 = self.sfc.get_step('2')
-		self.assertEqual(s2.incoming_transitions, [])
-		# But object-level incoming transitions should include transition 39
-		incoming_objs = {t.id for t in s2.incoming_transition_objects}
+		# Object-level incoming transitions should include transition 39
+		incoming_objs = {t.id for t in s2.incoming_transitions}
 		self.assertIn('39', incoming_objs)
 
 	def test_transition_condition_and_object_links(self):
 		tr42 = self.sfc.get_transition('42')
 		self.assertIsNotNone(tr42)
-		# Condition text in the fixture is nested; Transition.condition will be None
-		self.assertIsNone(tr42.condition)
+		# Condition now returns a list of condition strings
+		# Transition 42 should have condition 'Step_003.DN'
+		self.assertIsNotNone(tr42.condition)
+		self.assertIsInstance(tr42.condition, list)
+		self.assertIn('Step_003.DN', tr42.condition)
 		# object-level to_steps should include step '8'
 		to_ids = {s.id for s in tr42.to_step_objects}
 		self.assertIn('8', to_ids)
@@ -129,7 +133,7 @@ class SFCParsing(unittest.TestCase):
 		self.assertEqual(from_steps[0].id, '0')
 		
 		# Transition 39 should also be accessible via the alias
-		incoming_steps = tr39.incoming_step_objects
+		incoming_steps = tr39.incoming_steps
 		self.assertEqual(len(incoming_steps), 1)
 		self.assertEqual(incoming_steps[0].id, '0')
 
@@ -143,7 +147,7 @@ class SFCParsing(unittest.TestCase):
 		self.assertEqual(to_steps[0].id, '2')
 		
 		# Transition 39 should also be accessible via the alias
-		outgoing_steps = tr39.outgoing_step_objects
+		outgoing_steps = tr39.outgoing_steps
 		self.assertEqual(len(outgoing_steps), 1)
 		self.assertEqual(outgoing_steps[0].id, '2')
 
@@ -194,35 +198,35 @@ class SFCParsing(unittest.TestCase):
 					f"Transition {tr.id} to_steps not sorted: {to_ids}")
 
 	def test_transition_accessor_aliases(self):
-		"""Test that from_step_objects/incoming_step_objects and to_step_objects/outgoing_step_objects are equivalent."""
+		"""Test that from_step_objects/incoming_steps and to_step_objects/outgoing_steps are equivalent."""
 		for tr in self.sfc.transitions:
-			# from_step_objects and incoming_step_objects should be identical
+			# from_step_objects and incoming_steps should be identical
 			from_objs = tr.from_step_objects
-			incoming_objs = tr.incoming_step_objects
+			incoming_objs = tr.incoming_steps
 			from_ids = [s.id for s in from_objs]
 			incoming_ids = [s.id for s in incoming_objs]
 			self.assertEqual(from_ids, incoming_ids,
-				f"Transition {tr.id}: from_step_objects != incoming_step_objects")
+				f"Transition {tr.id}: from_step_objects != incoming_steps")
 			
-			# to_step_objects and outgoing_step_objects should be identical
+			# to_step_objects and outgoing_steps should be identical
 			to_objs = tr.to_step_objects
-			outgoing_objs = tr.outgoing_step_objects
+			outgoing_objs = tr.outgoing_steps
 			to_ids = [s.id for s in to_objs]
 			outgoing_ids = [s.id for s in outgoing_objs]
 			self.assertEqual(to_ids, outgoing_ids,
-				f"Transition {tr.id}: to_step_objects != outgoing_step_objects")
+				f"Transition {tr.id}: to_step_objects != outgoing_steps")
 
 	def test_transition_step_objects_bidirectional_consistency(self):
 		"""Test bidirectional consistency: if Step→Transition, then Transition→Step."""
 		for step in self.sfc.steps:
 			# For each outgoing transition from step
-			for tr in step.outgoing_transition_objects:
+			for tr in step.outgoing_transitions:
 				# That transition should have this step in its from_step_objects
 				self.assertIn(step, tr.from_step_objects,
 					f"Step {step.id} → Transition {tr.id}, but transition doesn't reference step")
 			
 			# For each incoming transition to step
-			for tr in step.incoming_transition_objects:
+			for tr in step.incoming_transitions:
 				# That transition should have this step in its to_step_objects
 				self.assertIn(step, tr.to_step_objects,
 					f"Transition {tr.id} → Step {step.id}, but transition doesn't reference step")
@@ -465,6 +469,83 @@ class SFCParsing(unittest.TestCase):
 				for line in st_lines:
 					self.assertIsInstance(line, str)
 				break
+
+	def test_step_initial_step_property(self):
+		"""Test that the is_initial_step property correctly identifies initial steps."""
+		# Step 0 should be the initial step
+		step0 = self.sfc.get_step('0')
+		self.assertIsNotNone(step0)
+		self.assertTrue(step0.is_initial_step)
+		
+		# Other steps should not be initial steps
+		step2 = self.sfc.get_step('2')
+		self.assertIsNotNone(step2)
+		self.assertFalse(step2.is_initial_step)
+
+	def test_step_initial_step_from_mainprogram(self):
+		"""Test is_initial_step property from MainProgram.L5X."""
+		# Load MainProgram.L5X
+		doc = ElementTree.parse('tests/MainProgram.L5X')
+		root = doc.getroot()
+		program_elem = root.find(".//Program[@Name='MainProgram']")
+		sfc_content = program_elem.find(".//Routine[@Name='SFC']/SFCContent")
+		
+		sfc = SFC(sfc_content)
+		
+		# Step 0 should be initial
+		step0 = sfc.get_step('0')
+		self.assertIsNotNone(step0)
+		self.assertTrue(step0.is_initial_step)
+		
+		# Collect all initial steps (usually only one)
+		initial_steps = [s for s in sfc.steps if s.is_initial_step]
+		self.assertGreater(len(initial_steps), 0)
+		# Verify the rest are not initial
+		non_initial_steps = [s for s in sfc.steps if not s.is_initial_step]
+		self.assertGreater(len(non_initial_steps), 0)
+
+	def test_actions_by_content(self):
+		"""Test actions_by_content property groups steps by unique action text."""
+		# Get all actions grouped by content
+		actions = self.sfc.actions
+		
+		# Verify it returns a list of tuples
+		self.assertIsInstance(actions, list)
+		self.assertTrue(all(isinstance(item, tuple) and len(item) == 2 for item in actions))
+		
+		# Each tuple should have (action_text, list_of_steps)
+		for action_text, steps_list in actions:
+			self.assertIsInstance(action_text, str)
+			self.assertIsInstance(steps_list, list)
+			self.assertTrue(all(isinstance(s, Step) for s in steps_list))
+		
+		# Find the action "B:=0;" - should be paired with Step_014 and Step_018
+		b_action = next((item for item in actions if item[0] == 'B:=0;'), None)
+		self.assertIsNotNone(b_action, "Action 'B:=0;' not found in actions_by_content")
+		
+		action_text, steps_with_b = b_action
+		self.assertEqual(action_text, 'B:=0;')
+		
+		# Should have exactly 2 steps
+		self.assertEqual(len(steps_with_b), 2)
+		
+		# Verify the steps are Step_014 (ID='27') and Step_018 (ID='35')
+		step_operands = [s.string_operand for s in steps_with_b]
+		self.assertIn('Step_014', step_operands)
+		self.assertIn('Step_018', step_operands)
+		
+		# Find the action "E:=1;" - should be paired with Step_006 only
+		e_action = next((item for item in actions if item[0] == 'E:=1;'), None)
+		self.assertIsNotNone(e_action, "Action 'E:=1;' not found in actions_by_content")
+		
+		action_text, steps_with_e = e_action
+		self.assertEqual(action_text, 'E:=1;')
+		
+		# Should have exactly 1 step
+		self.assertEqual(len(steps_with_e), 1)
+		
+		# Verify the step is Step_006 (ID='12')
+		self.assertEqual(steps_with_e[0].string_operand, 'Step_006')
 
 if __name__ == '__main__':
 	unittest.main()
