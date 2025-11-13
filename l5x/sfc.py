@@ -102,6 +102,52 @@ class SFC:
     def branchs(self):
         """Return list of Branch objects parsed from the SFC."""
         return list(self._branches.values())
+    @property
+    def actions_lookup_table(self):
+        """Conveniance method to return dict mapping action text to list of step operand integers.
+        {'action_text': [step_operand_int, step_operand_int, ...], ...}
+        """
+        return dict([(action,[step.int_operand() for step in steps]) for (action,steps) in self.actions])
+
+
+    @property
+    def actions(self):
+        """Return list of tuples (action_text, [Step, Step, ...]) grouping steps by unique action content.
+        
+        Each unique action (ST content) is paired with all Step objects that contain it.
+        If a step has multiple lines, they are joined with newlines.
+        Actions are sorted alphabetically by their text content.
+        
+        Returns:
+            List[Tuple[str, List[Step]]]: List of (action_text, steps_list) tuples,
+                sorted by action_text alphabetically.
+        
+        Example:
+            If step_014 and step_018 both have action "B:=0;", the result includes:
+            ("B:=0;", [step_014_object, step_018_object])
+        """
+        action_map = {}
+        
+        # Group steps by their action content
+        for step in self._steps.values():
+            st_content = step.st
+            if not st_content:
+                continue
+            
+            # Join multiple lines with newlines to form the full action text
+            action_text = '\n'.join(st_content)
+            
+            # Add step to the action's list
+            if action_text not in action_map:
+                action_map[action_text] = []
+            action_map[action_text].append(step)
+        
+        # Sort steps within each action by their ID (numerically)
+        for action_steps in action_map.values():
+            action_steps.sort(key=lambda s: int(s.id) if s.id and s.id.isdigit() else float('inf'))
+        
+        # Return sorted list of tuples by action text
+        return sorted(action_map.items(), key=lambda x: x[0])
     
     def _build_relations(self):
         """Walk DirectedLink entries and wire Step/Transition object references.
