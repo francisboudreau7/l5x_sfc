@@ -496,12 +496,12 @@ class Transition:
         return list(self._to_steps_objs)
     
     @property
-    def incoming_step_objects(self):
+    def incoming_steps(self):
         """Alias for from_step_objects: Steps immediately before this Transition."""
         return self.from_step_objects
     
     @property
-    def outgoing_step_objects(self):
+    def outgoing_steps(self):
         """Alias for to_step_objects: Steps immediately after this Transition."""
         return self.to_step_objects
 
