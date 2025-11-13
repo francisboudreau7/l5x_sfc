@@ -366,36 +366,6 @@ class Step:
         
         return st_lines
 
-
-
-    # Convenience accessors for transitions linking to/from this step
-    @property
-    def incoming_transitions(self):
-        # returns list of transition IDs referenced in <From> children, if any
-        out = []
-        from_parent = self.element.find('From')
-        if from_parent is None:
-            return out
-        for t in from_parent.findall('Transition'):
-            if 'ID' in t.attrib:
-                out.append(t.attrib['ID'])
-            elif t.text:
-                out.append(t.text)
-        return out
-
-    @property
-    def outgoing_transitions(self):
-        out = []
-        to_parent = self.element.find('To')
-        if to_parent is None:
-            return out
-        for t in to_parent.findall('Transition'):
-            if 'ID' in t.attrib:
-                out.append(t.attrib['ID'])
-            elif t.text:
-                out.append(t.text)
-        return out
-
     # object-level accessors
     def add_incoming_transition(self, transition):
         if transition not in self._incoming_objs:
@@ -406,12 +376,12 @@ class Step:
             self._outgoing_objs.append(transition)
 
     @property
-    def incoming_transition_objects(self):
+    def incoming_transitions(self):
         """Return list of Transition objects incoming to this Step."""
         return list(self._incoming_objs)
 
     @property
-    def outgoing_transition_objects(self):
+    def outgoing_transitions(self):
         """Return list of Transition objects outgoing from this Step."""
         return list(self._outgoing_objs)
 
